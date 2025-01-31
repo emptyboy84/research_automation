@@ -2,7 +2,7 @@ import pandas as pd
 from googleapiclient.discovery import build
 
 # --- API 키 및 검색 엔진 ID 설정 ---
-API_KEY = "AIzaSyDwvr7YS3dZ7YRDDK5bTCSWtHlAml2A-aU"  # Google Cloud Console에서 발급받은 API 키
+API_KEY = "AIzaSyDwvr7YS3dZ7YRDDK5bTCSWtHlAml2A-aU"  # Google Cloud Console에서 발급받은 API 키 (주의: 실제 사용 시 안전하게 관리해야 함)
 SEARCH_ENGINE_ID = "1049e4fe5dfc54f3b" # Google Custom Search Engine 설정에서 얻은 ID
 
 def google_search(search_term, api_key, search_engine_id, num_results=5):
@@ -16,15 +16,21 @@ def google_search(search_term, api_key, search_engine_id, num_results=5):
     return response
 
 def process_excel_and_search(excel_file_path, search_column, output_file_path="output.xlsx"):
-    """엑셀 파일을 읽고 분석하여 구글 검색 후 결과를 엑셀 파일로 저장하는 함수"""
-    df = pd.read_excel(r"c:\Users\Administrator\Desktop\research_automation\research.xlsx")  # 엑셀 파일 읽기
+    """엑셀 파일을 읽고 분석하여 구글 검색 후 결과를 엑셀 파일로 저장하는 함수
 
-    # --- 엑셀 데이터 분석 및 검색어 추출 로직 (사용자 정의 필요) ---
-    # 예시: 특정 열(search_column)의 내용을 검색어로 사용
+    Args:
+        excel_file_path (str): 입력 엑셀 파일 경로
+        search_column (str): 검색어를 추출할 열 이름
+        output_file_path (str, optional): 출력 엑셀 파일 경로. Defaults to "output.xlsx".
+    """
+    df = pd.read_excel(excel_file_path)  # 엑셀 파일 읽기 (파라미터 사용)
+    print(f"엑셀 파일 읽기 완료: {excel_file_path}") # 파일 읽기 확인 로그 추가
+
     df['검색결과'] = ""  # 검색 결과를 저장할 열 추가
+    print(f"'{search_column}' 열을 기준으로 검색 시작...") # 검색 시작 로그 추가
 
     for index, row in df.iterrows():
-        search_term = row["기업명"]  # 검색어 추출 (예시: 특정 열 값)
+        search_term = row[search_column]  # 검색어 추출 (파라미터 사용)
 
         if pd.notna(search_term): # 검색어가 NaN 값이 아닌 경우에만 검색 실행
             search_results = google_search(search_term, API_KEY, SEARCH_ENGINE_ID)
@@ -35,18 +41,23 @@ def process_excel_and_search(excel_file_path, search_column, output_file_path="o
                 first_result = search_results['items'][0]
                 result_info = f"제목: {first_result['title']}\nURL: {first_result['link']}"
                 df.at[index, '검색결과'] = result_info
+                print(f"'{search_term}' 검색 완료, 결과 저장: {first_result['title']}") # 개별 검색 완료 로그 추가
             else:
                 df.at[index, '검색결과'] = "검색 결과 없음"
+                print(f"'{search_term}' 검색 결과 없음") # 검색 실패 로그 추가
         else:
-            df.at[index, '검색결과'] = "검색어 없음" # 검색어가 없는 경우 처리
+            df.at[index, '검색결과'] = "검색어 없음"
+            print(f"{index+2}행 검색어 없음") # 검색어 없음을 로그로 표시 (엑셀 행 번호로 표시)
 
-    df.to_excel(output_file_path, index=False)  # 결과를 엑셀 파일로 저장
+    df.to_excel(output_file_path, index=False)  # 결과를 엑셀 파일로 저장 (파라미터 사용)
     print(f"결과 저장 완료: {output_file_path}")
 
 # --- 실행 예시 ---
 if __name__ == "__main__":
-    excel_file = "input.xlsx"  # 입력 엑셀 파일 경로
-    search_column_name = "제품명"  # 검색어를 추출할 열 이름 (예시)
+    excel_file = r"c:\Users\Administrator\Desktop\research_automation\research.xlsx"  # 입력 엑셀 파일 경로 (input.xlsx -> 실제 파일 경로로 변경)
+    search_column_name = "기업명"  # 검색어를 추출할 열 이름 (예시: "기업명" 열)
     output_excel = "output_with_google_results.xlsx" # 출력 엑셀 파일 경로
 
-    process_excel_and_search(excel_file, search_column_name, output_excel)
+    process_excel_and_search(excel_file, search_column_name, output_excel) # 수정된 변수 사용
+
+    print("자동화 작업 완료!") # 전체 작업 완료 로그 추가
