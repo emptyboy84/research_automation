@@ -1,49 +1,52 @@
 import pandas as pd
-import requests
-import time
+from googleapiclient.discovery import build
 
+# --- API 키 및 검색 엔진 ID 설정 ---
+API_KEY = "AIzaSyDwvr7YS3dZ7YRDDK5bTCSWtHlAml2A-aU"  # Google Cloud Console에서 발급받은 API 키
+SEARCH_ENGINE_ID = "1049e4fe5dfc54f3b" # Google Custom Search Engine 설정에서 얻은 ID
 
+def google_search(search_term, api_key, search_engine_id, num_results=5):
+    """구글 검색을 수행하고 결과를 반환하는 함수"""
+    service = build("customsearch", "v1", developerKey=api_key)
+    response = service.cse().list(
+        q=search_term,
+        cx=search_engine_id,
+        num=num_results  # 가져올 검색 결과 개수 (최대 10개)
+    ).execute()
+    return response
 
-from bs4 import BeautifulSoup
-headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (kjhtml, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
-url = "https://example.com"  # Define the URL here
-try:
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()  # HTTP 에러 확인
-    # 엑셀 파일 읽기
-    df = pd.read_excel(r'c:\Users\Administrator\Desktop\automation\연구소_정보통신업.xlsx')
-    # 예: '제품명' 열에서 검색 키워드 추출
-    keywords = df['기업명'].tolist()
-except requests.exceptions.RequestException as e:
-    print(f"Error: {e}")
+def process_excel_and_search(excel_file_path, search_column, output_file_path="output.xlsx"):
+    """엑셀 파일을 읽고 분석하여 구글 검색 후 결과를 엑셀 파일로 저장하는 함수"""
+    df = pd.read_excel(r"c:\Users\Administrator\Desktop\research_automation\research.xlsx")  # 엑셀 파일 읽기
 
-def search_info(keyword):
-    url = f"https://www.google.com/search?q={keyword}"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    # 여기서 필요한 정보를 추출하는 로직을 구현합니다
-    # 예: 첫 번째 검색 결과의 제목
-    result = soup.find('h3')
-    if result:
-        return result.text.strip()
-    else:
-        return "No result found"
+    # --- 엑셀 데이터 분석 및 검색어 추출 로직 (사용자 정의 필요) ---
+    # 예시: 특정 열(search_column)의 내용을 검색어로 사용
+    df['검색결과'] = ""  # 검색 결과를 저장할 열 추가
 
-# 검색 결과를 저장할 리스트
-search_results = []
+    for index, row in df.iterrows():
+        search_term = row["기업명"]  # 검색어 추출 (예시: 특정 열 값)
 
-for keyword in keywords[:100]:  # 처음 100개 키워드만 처리
-    result = search_info(keyword)
-    search_results.append(result)
-    time.sleep(2)  # 2초 대기
+        if pd.notna(search_term): # 검색어가 NaN 값이 아닌 경우에만 검색 실행
+            search_results = google_search(search_term, API_KEY, SEARCH_ENGINE_ID)
 
+            # --- 검색 결과 분석 및 정보 추출 로직 (사용자 정의 필요) ---
+            # 예시: 첫 번째 검색 결과의 제목과 URL을 추출하여 문자열로 저장
+            if 'items' in search_results:
+                first_result = search_results['items'][0]
+                result_info = f"제목: {first_result['title']}\nURL: {first_result['link']}"
+                df.at[index, '검색결과'] = result_info
+            else:
+                df.at[index, '검색결과'] = "검색 결과 없음"
+        else:
+            df.at[index, '검색결과'] = "검색어 없음" # 검색어가 없는 경우 처리
 
+    df.to_excel(output_file_path, index=False)  # 결과를 엑셀 파일로 저장
+    print(f"결과 저장 완료: {output_file_path}")
 
-#for keyword in keywords:
-#    result = search_info(keyword)
-#    search_results.append(result)
+# --- 실행 예시 ---
+if __name__ == "__main__":
+    excel_file = "input.xlsx"  # 입력 엑셀 파일 경로
+    search_column_name = "제품명"  # 검색어를 추출할 열 이름 (예시)
+    output_excel = "output_with_google_results.xlsx" # 출력 엑셀 파일 경로
 
-df['검색결과'] = search_results
-df.to_excel('output_file.xlsx', index=False)
-
-
+    process_excel_and_search(excel_file, search_column_name, output_excel)
